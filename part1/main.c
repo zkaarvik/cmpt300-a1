@@ -23,10 +23,7 @@ int main()
         }
     }
     fclose(fp_cpuinfo);
-
-
-    //printf("Hello World!\n%s", str_input_line);
-    //getchar();
+    
     return 0;
 }
 

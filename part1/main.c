@@ -2,26 +2,30 @@
 #include <string.h>
 
 #define MAX_LINE_LENGTH 256
+#define ID_CPUINFO "model name\t: "
 
 int main()
 {
-    char input_line[MAX_LINE_LENGTH];
+    char str_input_line[MAX_LINE_LENGTH];
+    size_t index;
     FILE *fp_cpuinfo;
 
-    // Read cpuinfo file and obtain processor type
+    // Obtain processor type
     fp_cpuinfo = fopen("/proc/cpuinfo", "r");
-    while (fgets(input_line, MAX_LINE_LENGTH, fp_cpuinfo))
+    while (fgets(str_input_line, MAX_LINE_LENGTH, fp_cpuinfo))
     {
-        //printf("%s", input_line);
-        if (strstr(input_line, "model name") != NULL)
+        //Check for line beginning with "model name", this is the processor type we need
+        if (strstr(str_input_line, ID_CPUINFO) != NULL)
         {
-            printf("%s", input_line);
+            index = strlen(ID_CPUINFO);
+            printf("Processor type: %s", str_input_line + index);
+            break;
         }
     }
     fclose(fp_cpuinfo);
 
 
-    //printf("Hello World!\n%s", input_line);
+    //printf("Hello World!\n%s", str_input_line);
     //getchar();
     return 0;
 }

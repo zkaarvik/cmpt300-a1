@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define MAX_INPUT_LENGTH 4096
 #define DELIMS " \t\n\r"
@@ -18,6 +20,7 @@ int main()
     int cur_argc;
     int i;
     pid_t pid;
+    int child_status;
 
     //main loop
     while (1)
@@ -55,6 +58,20 @@ int main()
         //Last element in argv array must be null
         cur_argv[cur_argc] = NULL;
 
+        //Handle internal commands - cd, exit, jobs
+        //TODO: finish this
+        if (strcmp(cur_prog, "cd") == 0)
+        {
+            continue;
+        }
+        else if (strcmp(cur_prog, "exit") == 0)
+        {
+            continue;
+        }
+        else if (strcmp(cur_prog, "jobs") == 0)
+        {
+            continue;
+        }
 
         //We have the program/file to execute and a list of arguments.. now we can fork and execute
         pid = fork();
@@ -68,11 +85,11 @@ int main()
             execvp(cur_prog, cur_argv);
             //execvp only returns in the case of an error - errno will be set
             perror("Error");
-            return 0;
+            exit(0);
         }
         else //Running in the parent process, wait for child to complete
         {
-            wait(NULL);
+            waitpid(pid, &child_status, 0);
         }
 
         //Free the argv array

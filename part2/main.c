@@ -36,6 +36,7 @@ int main()
 
         //First argument must be the filename (req'd for execvp)
         //each subsequent token is an argument (until we see | or &)
+        //Leaving an extra space in cur_argv array for NULL
         cur_argc++;
         cur_argv = malloc(sizeof(char *) * (cur_argc + 1));
         cur_argv[cur_argc - 1] = basename(cur_prog);
@@ -53,18 +54,6 @@ int main()
         }
         //Last element in argv array must be null
         cur_argv[cur_argc] = NULL;
-
-
-
-        //*******DEBUG
-        // printf("program name: %s \n", cur_prog);
-        // for (i = 0; i < cur_argc; i++)
-        // {
-        //     printf("argv array[%i]: %s \n", i, cur_argv[i]);
-        // }
-        //END *******DEBUG
-
-
 
 
         //We have the program/file to execute and a list of arguments.. now we can fork and execute
@@ -85,8 +74,6 @@ int main()
         {
             wait(NULL);
         }
-
-
 
         //Free the argv array
         free(cur_argv);

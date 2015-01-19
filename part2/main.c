@@ -68,6 +68,7 @@ int main()
         if(isBackground == 1) cur_argv[cur_argc-1] = NULL;
         else cur_argv[cur_argc] = NULL;
 
+
         //Handle internal commands - cd, exit, jobs
         if (strcmp(cur_prog, "cd") == 0)
         {
@@ -88,6 +89,7 @@ int main()
             continue;
         }
 
+
         //We have the program/file to execute and a list of arguments.. now we can fork and execute
         pid = fork();
         if (pid < 0)
@@ -102,7 +104,7 @@ int main()
             perror("Error");
             exit(0);
         }
-        else //Running in the parent process, wait for child to complete
+        else //Running in the parent process, wait for child to complete if not running in background
         {
             if(isBackground == 0) waitpid(pid, &child_status, 0);
         }

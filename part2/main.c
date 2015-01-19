@@ -62,10 +62,15 @@ int main()
         //TODO: finish this
         if (strcmp(cur_prog, "cd") == 0)
         {
+            if(chdir(cur_argv[1]) == -1)
+            {
+                perror("chdir error");
+            }
             continue;
         }
         else if (strcmp(cur_prog, "exit") == 0)
         {
+            exit(0);
             continue;
         }
         else if (strcmp(cur_prog, "jobs") == 0)

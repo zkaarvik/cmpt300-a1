@@ -1,0 +1,6 @@
+***PART1***
+
+For part 1 the executable is named "proc_parse".
+To compile, simply use "make", this will produce the proc_parse executable
+
+This part was tested simply by running on several different linux machines, my home computer, the CSIL lab computers, a Raspberry Pi running debian, and an Ubuntu VPS

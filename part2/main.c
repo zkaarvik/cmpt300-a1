@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 #define MAX_INPUT_LENGTH 4096
 #define DELIMS " \t\n\r"
@@ -15,7 +16,6 @@ int main()
     char user_input[MAX_INPUT_LENGTH];
     char *saveptr;
     char *cur_token;
-    char *cur_prog;
     char **cur_argv;
     char *cur_dir;
     int cur_argc;
@@ -23,6 +23,10 @@ int main()
     pid_t pid;
     int child_status;
     int isBackground;
+
+    //Ignore control-c and control-z signal
+    signal(SIGINT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
 
     //main loop
     while (1)
@@ -35,18 +39,19 @@ int main()
         fgets(user_input, MAX_INPUT_LENGTH, stdin);
 
         //Parse the string into tokens - first the program name
+        //Program name must be the first argument in the arg array
+        //If first token is NULL, then skip this iteration
         if (cur_token = strtok_r(user_input, DELIMS, &saveptr))
         {
-            cur_prog = cur_token;
+            cur_argc++;
+            cur_argv = malloc(sizeof(char *) * (cur_argc + 1));
+            cur_argv[cur_argc - 1] = basename(cur_token);
         }
         else continue;
 
         //First argument must be the filename (req'd for execvp)
         //each subsequent token is an argument (until we see | or &)
         //Leaving an extra space in cur_argv array for NULL
-        cur_argc++;
-        cur_argv = malloc(sizeof(char *) * (cur_argc + 1));
-        cur_argv[cur_argc - 1] = basename(cur_prog);
         while (cur_token = strtok_r(NULL, DELIMS, &saveptr))
         {
             //Check if token specifies backgrounding (only if last token)
@@ -70,7 +75,7 @@ int main()
 
 
         //Handle internal commands - cd, exit, jobs
-        if (strcmp(cur_prog, "cd") == 0)
+        if (strcmp(cur_argv[0], "cd") == 0)
         {
             if (chdir(cur_argv[1]) == -1)
             {
@@ -78,12 +83,12 @@ int main()
             }
             continue;
         }
-        else if (strcmp(cur_prog, "exit") == 0)
+        else if (strcmp(cur_argv[0], "exit") == 0)
         {
             exit(0);
             continue;
         }
-        else if (strcmp(cur_prog, "jobs") == 0)
+        else if (strcmp(cur_argv[0], "jobs") == 0)
         {
             printf("Need to add support for jobs command....\n");
             continue;
@@ -99,7 +104,7 @@ int main()
         }
         else if (pid == 0) //Running in the child process, run command
         {
-            execvp(cur_prog, cur_argv);
+            execvp(cur_argv[0], cur_argv);
             //execvp only returns in the case of an error - errno will be set
             perror("Error");
             exit(0);

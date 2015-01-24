@@ -1,0 +1,6 @@
+*** PART 2 ***
+
+In part 2 stuff happens.. blah blah
+
+I am using orig_argv as the full and complete parsed input by the user, it contains the tokens from the user in an array.
+cur_argv is the current argument array, in the case of a piped command this will be the current command to execute

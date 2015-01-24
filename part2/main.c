@@ -88,7 +88,8 @@ int main()
         //Handle internal commands - cd, exit, jobs
         if (strcmp(orig_argv[0], "cd") == 0)
         {
-            if (chdir(orig_argv[1]) == -1)
+            if(orig_argv[1] == NULL) printf("Error: No directory specified\n");
+            else if (chdir(orig_argv[1]) == -1)
             {
                 perror("chdir error");
             }
@@ -107,7 +108,7 @@ int main()
 
 
         //Get current argument array
-        cur_argv = getCurrentArgv(orig_argv, orig_argc, 1);
+        cur_argv = getCurrentArgv(orig_argv, orig_argc, 0);
 
         //We have the program/file to execute and a list of arguments.. now we can fork and execute
         pid = fork();

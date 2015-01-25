@@ -4,3 +4,7 @@ In part 2 stuff happens.. blah blah
 
 I am using orig_argv as the full and complete parsed input by the user, it contains the tokens from the user in an array.
 cur_argv is the current argument array, in the case of a piped command this will be the current command to execute
+
+The way my command parsing is structured, if the user puts an '&' token in the middle of their input string, it will ignore everything after the '&' symbol
+
+To test for memory leaks I used Valgrind

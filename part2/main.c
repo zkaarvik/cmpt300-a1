@@ -10,6 +10,8 @@
 
 #define MAX_INPUT_LENGTH 4096
 #define DELIMS " \t\n\r"
+#define PIPE_READ 0
+#define PIPE_WRITE 1
 
 char **getCurrentArgv(char **, int, int);
 
@@ -27,6 +29,7 @@ int main()
     pid_t pid;
     int child_status;
     int isBackground;
+    int *pipefd;
 
     //Ignore control-c and control-z signal
     signal(SIGINT, SIG_IGN);
@@ -60,8 +63,11 @@ int main()
         while (cur_token = strtok_r(NULL, DELIMS, &saveptr))
         {
             //Check if token specifies backgrounding (only if last token)
-            if (strcmp(cur_token, "&") == 0) isBackground = 1;
-            else isBackground = 0;
+            if (strcmp(cur_token, "&") == 0)
+            {
+                isBackground = 1;
+                break;
+            }
 
             if (strcmp(cur_token, "|") == 0) pipe_count++;
 
@@ -76,19 +82,13 @@ int main()
             orig_argv[orig_argc - 1] = cur_token;
         }
         //Last element in argv array must be null
-        //If isBackground is true, overwrite the ending & with NULL
-        if (isBackground == 1) orig_argv[orig_argc - 1] = NULL;
-        else
-        {
-            orig_argv = realloc(orig_argv, sizeof(char *) * (orig_argc + 1));
-            orig_argv[orig_argc] = NULL;
-        }
-
+        orig_argv = realloc(orig_argv, sizeof(char *) * (orig_argc + 1));
+        orig_argv[orig_argc] = NULL;
 
         //Handle internal commands - cd, exit, jobs
         if (strcmp(orig_argv[0], "cd") == 0)
         {
-            if(orig_argv[1] == NULL) printf("Error: No directory specified\n");
+            if (orig_argv[1] == NULL) printf("Error: No directory specified\n");
             else if (chdir(orig_argv[1]) == -1)
             {
                 perror("chdir error");
@@ -107,29 +107,99 @@ int main()
         }
 
 
-        //Get current argument array
-        cur_argv = getCurrentArgv(orig_argv, orig_argc, 0);
+        //Need a pipefd array as large as pipe_count * 2
+        if (pipe_count > 0)
+        {
+            pipefd = malloc(2 * pipe_count * sizeof(int *));
+            for (i = 0; i < pipe_count; i++)
+            {
+                pipe(pipefd + (i * 2));
+            }
+        }
+        //Execute commands with respect to piping
+        for (i = 0; i <= pipe_count; i++)
+        {
+            cur_argv = getCurrentArgv(orig_argv, orig_argc, i);
 
-        //We have the program/file to execute and a list of arguments.. now we can fork and execute
-        pid = fork();
-        if (pid < 0)
+            pid = fork();
+
+            //Single command, no piping
+            if (pipe_count == 0)
+            {
+                if (pid == 0)
+                {
+                    execvp(cur_argv[0], cur_argv);
+                    perror("Error");
+                    exit(1);
+                }
+                else continue;
+            }
+
+            //First command
+            //Output goes to next command
+            else if (i == 0)
+            {
+                if (pid == 0)
+                {
+                    close(pipefd[(i * 2) + PIPE_READ]);
+                    dup2(pipefd[(i * 2) + PIPE_WRITE], STDOUT_FILENO);
+                    close(pipefd[(i * 2) + PIPE_WRITE]);
+                    execvp(cur_argv[0], cur_argv);
+                    perror("Error");
+                    exit(1);
+                }
+                else continue;
+            }
+
+            //Last command
+            //Input comes from previous command
+            else if (i == pipe_count)
+            {
+                if (pid == 0)
+                {
+                    close(pipefd[(i * 2) + PIPE_WRITE]);
+                    dup2(pipefd[((i - 1) * 2) + PIPE_READ], STDIN_FILENO);
+                    close(pipefd[((i - 1) * 2) + PIPE_READ]);
+                    execvp(cur_argv[0], cur_argv);
+                    perror("Error");
+                    exit(1);
+                }
+                else continue;
+            }
+
+            //Middle commands
+            //Input comes from previous command and output goes to next command
+            else
+            {
+                if (pid == 0)
+                {
+                    dup2(pipefd[((i - 1) * 2) + PIPE_READ], STDIN_FILENO);
+                    dup2(pipefd[(i * 2) + PIPE_WRITE], STDOUT_FILENO);
+                    close(pipefd[((i - 1) * 2) + PIPE_READ]);
+                    close(pipefd[(i * 2) + PIPE_WRITE]);
+                    execvp(cur_argv[0], cur_argv);
+                    perror("Error");
+                    exit(1);
+                }
+                else continue;
+            }
+
+        }
+
+        //Parent process, wait for child to complete if not running in background
+        if (pid > 0)
+        {
+            if (isBackground == 0) waitpid(pid, &child_status, 0);
+            //if (isBackground == 0) wait(NULL);
+        }
+        else if (pid < 0)
         {
             perror("Error: Fork failure");
             continue;
         }
-        else if (pid == 0) //Running in the child process, run command
-        {
-            execvp(cur_argv[0], cur_argv);
-            //execvp only returns in the case of an error - errno will be set
-            perror("Error");
-            exit(0);
-        }
-        else //Running in the parent process, wait for child to complete if not running in background
-        {
-            if (isBackground == 0) waitpid(pid, &child_status, 0);
-        }
 
         //Free necessary variables
+        free(pipefd);
         free(cur_argv);
         free(orig_argv);
         free(cur_dir);

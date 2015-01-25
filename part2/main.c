@@ -14,6 +14,7 @@
 #define PIPE_WRITE 1
 
 char **getCurrentArgv(char **, int, int);
+void close_pipes(int *, int);
 
 int main()
 {
@@ -43,6 +44,7 @@ int main()
         pipe_count = 0;
 
         cur_dir = getcwd(NULL, 0);
+
         printf("%s$ ", cur_dir);
         fgets(user_input, MAX_INPUT_LENGTH, stdin);
 
@@ -141,9 +143,9 @@ int main()
             {
                 if (pid == 0)
                 {
-                    close(pipefd[(i * 2) + PIPE_READ]);
                     dup2(pipefd[(i * 2) + PIPE_WRITE], STDOUT_FILENO);
-                    close(pipefd[(i * 2) + PIPE_WRITE]);
+                    
+                    close_pipes(pipefd, pipe_count);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
@@ -157,9 +159,9 @@ int main()
             {
                 if (pid == 0)
                 {
-                    close(pipefd[(i * 2) + PIPE_WRITE]);
                     dup2(pipefd[((i - 1) * 2) + PIPE_READ], STDIN_FILENO);
-                    close(pipefd[((i - 1) * 2) + PIPE_READ]);
+
+                    close_pipes(pipefd, pipe_count);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
@@ -175,8 +177,8 @@ int main()
                 {
                     dup2(pipefd[((i - 1) * 2) + PIPE_READ], STDIN_FILENO);
                     dup2(pipefd[(i * 2) + PIPE_WRITE], STDOUT_FILENO);
-                    close(pipefd[((i - 1) * 2) + PIPE_READ]);
-                    close(pipefd[(i * 2) + PIPE_WRITE]);
+                    
+                    close_pipes(pipefd, pipe_count);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
@@ -189,6 +191,8 @@ int main()
         //Parent process, wait for child to complete if not running in background
         if (pid > 0)
         {
+            close_pipes(pipefd, pipe_count);
+
             if (isBackground == 0) waitpid(pid, &child_status, 0);
             //if (isBackground == 0) wait(NULL);
         }
@@ -242,4 +246,14 @@ char **getCurrentArgv(char **orig_argv, int orig_argc, int pipe_index)
     cur_argv[cur_argc] = NULL;
 
     return cur_argv;
+}
+
+void close_pipes(int *pipefd, int pipe_count)
+{
+    int i;
+
+    for (i = 0; i < pipe_count*2; i++)
+    {
+        close(pipefd[i]);
+    }
 }

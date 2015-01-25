@@ -25,13 +25,14 @@ int main()
     char cur_dir[MAX_PATH_LENGTH];
     char **cur_argv;
     char **orig_argv;
+    char **temp_argv;
     int orig_argc;
     int pipe_count;
     int i;
-    pid_t pid;
     int child_status;
     int isBackground;
     int *pipefd;
+    pid_t pid;
 
     //Ignore control-c and control-z signal
     signal(SIGINT, SIG_IGN);
@@ -75,13 +76,14 @@ int main()
             if (strcmp(cur_token, "|") == 0) pipe_count++;
 
             orig_argc++;
-            orig_argv = realloc(orig_argv, sizeof(char *) * (orig_argc));
-            if (orig_argv == NULL)
+            temp_argv = realloc(orig_argv, sizeof(char *) * (orig_argc));
+            if (temp_argv == NULL)
             {
                 perror("Error allocating memory\n");
-                free(orig_argv);
+                free(temp_argv);
                 break;
             }
+            else orig_argv = temp_argv;
             orig_argv[orig_argc - 1] = cur_token;
         }
         //Last element in argv array must be null
@@ -195,7 +197,6 @@ int main()
             close_pipes(pipefd, pipe_count);
 
             if (isBackground == 0) waitpid(pid, &child_status, 0);
-            //if (isBackground == 0) wait(NULL);
         }
         else if (pid < 0)
         {
@@ -220,6 +221,7 @@ char **getCurrentArgv(char **orig_argv, int orig_argc, int pipe_index)
     //With pipe_index = 1, return ["grep", "-i", "m", NULL]
 
     char **cur_argv = NULL;
+    char **temp_argv = NULL;
     int cur_argc = 0;
 
     int cur_pipe_count = 0;
@@ -236,7 +238,14 @@ char **getCurrentArgv(char **orig_argv, int orig_argc, int pipe_index)
         if (cur_pipe_count == pipe_index)
         {
             cur_argc++;
-            cur_argv = realloc(cur_argv, sizeof(char *) * (cur_argc));
+            temp_argv = realloc(cur_argv, sizeof(char *) * (cur_argc));
+            if(temp_argv == NULL)
+            {
+                perror("Error allocating memory\n");
+                free(temp_argv);
+                break;
+            }
+            else cur_argv = temp_argv;
             cur_argv[cur_argc - 1] = orig_argv[i];
         }
     }

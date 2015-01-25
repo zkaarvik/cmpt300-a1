@@ -9,6 +9,7 @@
 #include <signal.h>
 
 #define MAX_INPUT_LENGTH 4096
+#define MAX_PATH_LENGTH 1024
 #define DELIMS " \t\n\r"
 #define PIPE_READ 0
 #define PIPE_WRITE 1
@@ -21,7 +22,7 @@ int main()
     char user_input[MAX_INPUT_LENGTH];
     char *saveptr;
     char *cur_token;
-    char *cur_dir;
+    char cur_dir[MAX_PATH_LENGTH];
     char **cur_argv;
     char **orig_argv;
     int orig_argc;
@@ -43,7 +44,7 @@ int main()
         isBackground = 0;
         pipe_count = 0;
 
-        cur_dir = getcwd(NULL, 0);
+        getcwd(cur_dir, MAX_PATH_LENGTH);
 
         printf("%s$ ", cur_dir);
         fgets(user_input, MAX_INPUT_LENGTH, stdin);
@@ -203,10 +204,9 @@ int main()
         }
 
         //Free necessary variables
-        free(pipefd);
+        if(pipe_count > 0) free(pipefd);
         free(cur_argv);
         free(orig_argv);
-        free(cur_dir);
     }
 
     return 0;

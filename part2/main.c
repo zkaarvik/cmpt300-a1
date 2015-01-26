@@ -20,9 +20,9 @@ void close_pipes(int *, int);
 int main()
 {
     char user_input[MAX_INPUT_LENGTH];
+    char cur_dir[MAX_PATH_LENGTH];
     char *saveptr;
     char *cur_token;
-    char cur_dir[MAX_PATH_LENGTH];
     char **cur_argv;
     char **orig_argv;
     char **temp_argv;
@@ -80,7 +80,7 @@ int main()
             if (temp_argv == NULL)
             {
                 perror("Error allocating memory\n");
-                free(temp_argv);
+                free(orig_argv);
                 break;
             }
             else orig_argv = temp_argv;
@@ -102,6 +102,7 @@ int main()
         }
         else if (strcmp(orig_argv[0], "exit") == 0)
         {
+            free(orig_argv);
             exit(0);
             continue;
         }
@@ -118,7 +119,10 @@ int main()
             pipefd = malloc(2 * pipe_count * sizeof(int *));
             for (i = 0; i < pipe_count; i++)
             {
-                pipe(pipefd + (i * 2));
+                if (pipe(pipefd + (i * 2)) == -1)
+                {
+                    perror("Pipe error");
+                }
             }
         }
         //Execute commands with respect to piping
@@ -133,6 +137,7 @@ int main()
             {
                 if (pid == 0)
                 {
+                    free(orig_argv);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
@@ -147,13 +152,19 @@ int main()
                 if (pid == 0)
                 {
                     dup2(pipefd[(i * 2) + PIPE_WRITE], STDOUT_FILENO);
-                    
+
                     close_pipes(pipefd, pipe_count);
+                    free(pipefd);
+                    free(orig_argv);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
                 }
-                else continue;
+                else 
+                {
+                    free(cur_argv);
+                    continue;
+                }
             }
 
             //Last command
@@ -165,6 +176,8 @@ int main()
                     dup2(pipefd[((i - 1) * 2) + PIPE_READ], STDIN_FILENO);
 
                     close_pipes(pipefd, pipe_count);
+                    free(pipefd);
+                    free(orig_argv);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
@@ -180,15 +193,20 @@ int main()
                 {
                     dup2(pipefd[((i - 1) * 2) + PIPE_READ], STDIN_FILENO);
                     dup2(pipefd[(i * 2) + PIPE_WRITE], STDOUT_FILENO);
-                    
+
                     close_pipes(pipefd, pipe_count);
+                    free(pipefd);
+                    free(orig_argv);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
                 }
-                else continue;
+                else 
+                {
+                    free(cur_argv);
+                    continue;
+                }
             }
-
         }
 
         //Parent process, wait for child to complete if not running in background
@@ -205,7 +223,7 @@ int main()
         }
 
         //Free necessary variables
-        if(pipe_count > 0) free(pipefd);
+        if (pipe_count > 0) free(pipefd);
         free(cur_argv);
         free(orig_argv);
     }
@@ -239,19 +257,26 @@ char **getCurrentArgv(char **orig_argv, int orig_argc, int pipe_index)
         {
             cur_argc++;
             temp_argv = realloc(cur_argv, sizeof(char *) * (cur_argc));
-            if(temp_argv == NULL)
+            if (temp_argv == NULL)
             {
                 perror("Error allocating memory\n");
-                free(temp_argv);
-                break;
+                free(cur_argv);
+                return NULL;
             }
-            else cur_argv = temp_argv;
+            cur_argv = temp_argv;
             cur_argv[cur_argc - 1] = orig_argv[i];
         }
     }
 
     //NULL-terminate the array
-    cur_argv = realloc(cur_argv, sizeof(char *) * (cur_argc + 1));
+    temp_argv = realloc(cur_argv, sizeof(char *) * (cur_argc + 1));
+    if (temp_argv == NULL)
+    {
+        perror("Error allocating memory\n");
+        free(cur_argv);
+        return NULL;
+    }
+    cur_argv = temp_argv;
     cur_argv[cur_argc] = NULL;
 
     return cur_argv;
@@ -261,7 +286,7 @@ void close_pipes(int *pipefd, int pipe_count)
 {
     int i;
 
-    for (i = 0; i < pipe_count*2; i++)
+    for (i = 0; i < pipe_count * 2; i++)
     {
         close(pipefd[i]);
     }

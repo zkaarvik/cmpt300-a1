@@ -7,4 +7,4 @@ The way my command parsing is structured, if the user puts an '&' token in the m
 
 The one major issue I've found, and doesn't seem to be required by the assignment is that arguments in quotes aren't supported. For example, trying to 'git commit -m "some commit"' will seperate '"some' and 'commit"' into different tokens. This breaks functionality of these types of commands and I am aware of the problem
 
-Debugging was done with ddd, and to test for memory leaks I used Valgrind
+Debugging was done with ddd, to test for and find memory leaks I used Valgrind

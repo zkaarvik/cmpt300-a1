@@ -16,6 +16,7 @@
 
 char **getCurrentArgv(char **, int, int);
 void close_pipes(int *, int);
+void handle_SIGINT();
 
 int main()
 {
@@ -35,8 +36,8 @@ int main()
     pid_t pid;
 
     //Ignore control-c and control-z signal
-    signal(SIGINT, SIG_IGN);
-    signal(SIGTSTP, SIG_IGN);
+    signal(SIGINT, SIG_IGN); //ctrl-c
+    signal(SIGTSTP, SIG_IGN); //ctrl-z
 
     //main loop
     while (1)
@@ -48,7 +49,12 @@ int main()
         getcwd(cur_dir, MAX_PATH_LENGTH);
 
         printf("%s$ ", cur_dir);
-        fgets(user_input, MAX_INPUT_LENGTH, stdin);
+        if( fgets(user_input, MAX_INPUT_LENGTH, stdin) == NULL )
+        {
+            //EOF encountered, ctrl d pressed
+            printf("\n");
+            exit(0);
+        }
 
         //Parse the string into tokens - first the program name
         //Program name must be the first argument in the arg array

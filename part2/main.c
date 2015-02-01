@@ -14,14 +14,23 @@
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 
+typedef struct
+{
+    pid_t pid;
+    char *cmd_string;
+} command;
+
 char **getCurrentArgv(char **, int, int);
 void close_pipes(int *, int);
 void handle_SIGINT();
+void print_job_list(command *, int);
+void free_cmd_array(command *, int);
 
 int main()
 {
     char user_input[MAX_INPUT_LENGTH];
     char cur_dir[MAX_PATH_LENGTH];
+    char *cur_cmd_string;
     char *saveptr;
     char *cur_token;
     char **cur_argv;
@@ -33,9 +42,11 @@ int main()
     int child_status;
     int isBackground;
     int *pipefd;
+    int cmd_array_length = 0;
     pid_t pid;
+    command *cmd_array = NULL;
 
-    //Ignore control-c and control-z signal
+    //Ignore control-c and control-z signal in the main process
     signal(SIGINT, SIG_IGN); //ctrl-c
     signal(SIGTSTP, SIG_IGN); //ctrl-z
 
@@ -49,12 +60,16 @@ int main()
         getcwd(cur_dir, MAX_PATH_LENGTH);
 
         printf("%s$ ", cur_dir);
-        if( fgets(user_input, MAX_INPUT_LENGTH, stdin) == NULL )
+        if ( fgets(user_input, MAX_INPUT_LENGTH, stdin) == NULL )
         {
             //EOF encountered, ctrl d pressed
+            free_cmd_array(cmd_array, cmd_array_length);
             printf("\n");
             exit(0);
         }
+
+        //Keep the original command string - needs to be saved into cmd_array if process is backgrounded
+        cur_cmd_string = strdup(user_input);
 
         //Parse the string into tokens - first the program name
         //Program name must be the first argument in the arg array
@@ -109,12 +124,13 @@ int main()
         else if (strcmp(orig_argv[0], "exit") == 0)
         {
             free(orig_argv);
+            free_cmd_array(cmd_array, cmd_array_length);
             exit(0);
             continue;
         }
         else if (strcmp(orig_argv[0], "jobs") == 0)
         {
-            printf("Need to add support for jobs command....\n");
+            print_job_list(cmd_array, cmd_array_length);
             continue;
         }
 
@@ -144,6 +160,7 @@ int main()
                 if (pid == 0)
                 {
                     free(orig_argv);
+                    free_cmd_array(cmd_array, cmd_array_length);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
@@ -162,11 +179,12 @@ int main()
                     close_pipes(pipefd, pipe_count);
                     free(pipefd);
                     free(orig_argv);
+                    free_cmd_array(cmd_array, cmd_array_length);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
                 }
-                else 
+                else
                 {
                     free(cur_argv);
                     continue;
@@ -184,6 +202,7 @@ int main()
                     close_pipes(pipefd, pipe_count);
                     free(pipefd);
                     free(orig_argv);
+                    free_cmd_array(cmd_array, cmd_array_length);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
@@ -203,11 +222,12 @@ int main()
                     close_pipes(pipefd, pipe_count);
                     free(pipefd);
                     free(orig_argv);
+                    free_cmd_array(cmd_array, cmd_array_length);
                     execvp(cur_argv[0], cur_argv);
                     perror("Error");
                     exit(1);
                 }
-                else 
+                else
                 {
                     free(cur_argv);
                     continue;
@@ -221,6 +241,15 @@ int main()
             close_pipes(pipefd, pipe_count);
 
             if (isBackground == 0) waitpid(pid, &child_status, 0);
+            else
+            {
+                //Add to command array
+                cmd_array_length++;
+                int size = cmd_array_length * sizeof(command);
+                cmd_array = realloc(cmd_array, size);
+                cmd_array[cmd_array_length - 1].pid = pid;
+                cmd_array[cmd_array_length - 1].cmd_string = cur_cmd_string;
+            }
         }
         else if (pid < 0)
         {
@@ -296,4 +325,34 @@ void close_pipes(int *pipefd, int pipe_count)
     {
         close(pipefd[i]);
     }
+}
+
+void print_job_list(command *cmd_array, int cmd_array_length)
+{
+    int i, child_status;
+
+    if (cmd_array == NULL) return;
+
+    for (i = 0; i < cmd_array_length; i++)
+    {
+        if (waitpid(cmd_array[i].pid, &child_status, WNOHANG) == 0)
+        {
+            printf("[%d] %d \t %s", i, cmd_array[i].pid, cmd_array[i].cmd_string);
+        }
+    }
+
+}
+
+void free_cmd_array(command *cmd_array, int cmd_array_length)
+{
+    int i;
+
+    if (cmd_array == NULL) return;
+
+    for (i = 0; i < cmd_array_length; i++)
+    {
+        free(cmd_array[i].cmd_string);
+    }
+
+    free(cmd_array);
 }
